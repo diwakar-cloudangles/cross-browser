@@ -17,6 +17,7 @@ tasks:
       sleep 15
       echo "Starting FastAPI application..."
       source venv/bin/activate
+      chmod +x run.sh
       ./run.sh
 
 # Expose the application's port so we can access it
