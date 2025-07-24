@@ -1,0 +1,25 @@
+# .gitpod.yml
+tasks:
+  - name: Setup & Run
+    init: |
+      # This runs once to prepare the environment
+      echo "Building browser-chrome image... (This will take a few minutes)"
+      docker build -t browser-chrome:latest .
+      echo "Setting up Python environment..."
+      python3 -m venv venv
+      source venv/bin/activate
+      pip install -r requirements.txt
+    command: |
+      # These commands run every time you open the workspace
+      echo "Starting MySQL database..."
+      docker run --name mysql-db -e MYSQL_ROOT_PASSWORD=mysecretpassword -e MYSQL_DATABASE=local_db -p 3306:3306 -d mysql:8.0
+      echo "Waiting for database to initialize..."
+      sleep 15
+      echo "Starting FastAPI application..."
+      source venv/bin/activate
+      ./run.sh
+
+# Expose the application's port so we can access it
+ports:
+  - port: 8000
+    onOpen: open-preview

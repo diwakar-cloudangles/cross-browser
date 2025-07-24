@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Browser Session</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Cross-Browser Testing Platform</h1>
+        <div class="form-container">
+            <h2>Create a New Session</h2>
+            <p>Select a browser to start a remote testing session.</p>
+            <div class="browser-selection">
+                <div class="browser-option" data-browser="chrome">
+                    <img src="https://www.google.com/chrome/static/images/chrome-logo.svg" alt="Chrome">
+                    <span>Chrome</span>
+                </div>
+            </div>
+            <div id="loader" class="loader" style="display: none;"></div>
+            <p id="error-message" class="error"></p>
+        </div>
+    </div>
+    <script src="/static/main.js"></script>
+</body>
+</html>

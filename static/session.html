@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Session</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="session-container">
+        <div class="session-header">
+            <h1>Live Browser Session</h1>
+            <div id="status">Status: Connecting...</div>
+        </div>
+        <div class="video-wrapper">
+            <video id="remote-video" autoplay playsinline></video>
+            <div id="overlay" class="overlay">
+                <div class="loader"></div>
+                <p>Establishing secure connection...</p>
+            </div>
+        </div>
+    </div>
+    <script src="/static/session.js"></script>
+</body>
+</html>
