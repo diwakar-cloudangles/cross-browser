@@ -2,47 +2,29 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install VNC, Openbox, Supervisor, and dependencies for Edge
+# Install dependencies for x11vnc
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
-    tigervnc-standalone-server \
+    xvfb \
+    x11vnc \
     openbox \
-    xterm \
     supervisor \
-    curl \
-    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Microsoft Edge Installation ---
-# Add Microsoft GPG key and repository
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg \
-    && install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/ \
-    && sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge-dev.list' \
-    && rm microsoft.gpg
+# Add and install Google Chrome
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Edge
-RUN apt-get update && apt-get install -y microsoft-edge-stable
-# --- End Edge Installation ---
+# --- x11vnc Setup ---
+RUN mkdir -p /etc/x11vnc \
+    && x11vnc -storepasswd "password" /etc/x11vnc/vncpwd \
+    && chmod 644 /etc/x11vnc/vncpwd
 
-# --- TigerVNC Setup ---
-RUN mkdir -p /root/.vnc \
-    && echo "password" | vncpasswd -f > /root/.vnc/passwd \
-    && chmod 600 /root/.vnc/passwd
-
-RUN touch /root/.Xauthority && chmod 600 /root/.Xauthority
-
-# Create xstartup script to launch Edge
-RUN echo "#!/bin/sh\n\
-unset SESSION_MANAGER\n\
-unset DBUS_SESSION_BUS_ADDRESS\n\
-/usr/bin/openbox-session &\n\
-/usr/bin/microsoft-edge-stable --no-sandbox --disable-gpu\n\
-" > /root/.vnc/xstartup && chmod 755 /root/.vnc/xstartup
-# --- End TigerVNC Setup ---
-
+# Supervisor configuration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 5900
-
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

@@ -17,9 +17,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let pc;
 
     const createPeerConnection = () => {
-        pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        });
+        const iceServers = [
+            {
+                urls: "stun:stun.relay.metered.ca:80",
+            },
+            {
+                urls: "turn:global.relay.metered.ca:80",
+                username: "9a093fd7fc48f361fa9767f4",
+                credential: "pJnJrnGjsCIvp6zg",
+            },
+            {
+                urls: "turn:global.relay.metered.ca:80?transport=tcp",
+                username: "9a093fd7fc48f361fa9767f4",
+                credential: "pJnJrnGjsCIvp6zg",
+            },
+            {
+                urls: "turn:global.relay.metered.ca:443",
+                username: "9a093fd7fc48f361fa9767f4",
+                credential: "pJnJrnGjsCIvp6zg",
+            },
+            {
+                urls: "turns:global.relay.metered.ca:443?transport=tcp",
+                username: "9a093fd7fc48f361fa9767f4",
+                credential: "pJnJrnGjsCIvp6zg",
+            },
+        ];
+        pc = new RTCPeerConnection({ iceServers: iceServers });
 
         pc.ontrack = (event) => {
             if (videoElement.srcObject !== event.streams[0]) {

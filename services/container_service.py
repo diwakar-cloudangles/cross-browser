@@ -41,7 +41,7 @@ class ContainerService:
                 ContainerService.client.containers.run, **container_config
             )
             
-            await asyncio.sleep(5)
+            await asyncio.sleep(15)
             
             async with async_session_maker() as db:
                 db_container = Container(

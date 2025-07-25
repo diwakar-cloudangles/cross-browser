@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
             errorMessage.textContent = '';
 
             try {
-                const response = await fetch('/api/sessions', {
+                const response = await fetch('/api/sessions/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
