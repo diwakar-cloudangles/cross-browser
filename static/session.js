@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     const videoElement = document.getElementById('remote-video');
     const statusElement = document.getElementById('status');
@@ -18,31 +19,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const createPeerConnection = () => {
         const iceServers = [
-            {
-                urls: "stun:stun.relay.metered.ca:80",
-            },
-            {
-                urls: "turn:global.relay.metered.ca:80",
-                username: "9a093fd7fc48f361fa9767f4",
-                credential: "pJnJrnGjsCIvp6zg",
-            },
-            {
-                urls: "turn:global.relay.metered.ca:80?transport=tcp",
-                username: "9a093fd7fc48f361fa9767f4",
-                credential: "pJnJrnGjsCIvp6zg",
-            },
-            {
-                urls: "turn:global.relay.metered.ca:443",
-                username: "9a093fd7fc48f361fa9767f4",
-                credential: "pJnJrnGjsCIvp6zg",
-            },
-            {
-                urls: "turns:global.relay.metered.ca:443?transport=tcp",
-                username: "9a093fd7fc48f361fa9767f4",
-                credential: "pJnJrnGjsCIvp6zg",
-            },
+            { urls: "stun:stun.l.google.com:19302" }
         ];
         pc = new RTCPeerConnection({ iceServers: iceServers });
+        
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log("Sending ICE candidate to server:", event.candidate);
+                ws.send(JSON.stringify({
+                    type: 'webrtc_ice_candidate',
+                    data: event.candidate.toJSON()
+                }));
+            }
+        };
+
 
         pc.ontrack = (event) => {
             if (videoElement.srcObject !== event.streams[0]) {
@@ -74,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'webrtc_offer',
                 data: { offer: { sdp: offer.sdp, type: offer.type } }
             }));
+            console.log('WebRTC offer sent to server:', offer);
         } catch (error) {
             console.error('Error creating WebRTC offer:', error);
         }
@@ -81,12 +72,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ws.onmessage = async (event) => {
         const message = JSON.parse(event.data);
-        if (message.type === 'webrtc_answer') {
-            try {
-                await pc.setRemoteDescription(new RTCSessionDescription(message.data));
-            } catch (e) {
-                console.error('Error setting remote description:', e);
+        try{
+            if (message.type === 'webrtc_answer') {
+                try {
+                    await pc.setRemoteDescription(new RTCSessionDescription(message.data));
+                } catch (e) {
+                    console.error('Error setting remote description:', e);
+                }
             }
+            else if (message.type === 'webrtc_ice_candidate') {
+                if (message.data) {
+                    console.log("Received ICE candidate from server:", message.data);
+                    await pc.addIceCandidate(new RTCIceCandidate(message.data));
+                }
+            }
+        } catch (e) {
+            console.error('Error processing message from server:', e);
         }
     };
 

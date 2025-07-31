@@ -68,32 +68,82 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-async def handle_websocket_message(session_id: str, data: dict):
-    message_type = data.get("type")
-    payload = data.get("data", {})
-    try:
-        if message_type == "input":
-            await ContainerService.forward_input(session_id, payload)
-        elif message_type == "webrtc_offer":
-            request_obj = WebRTCOfferRequest(session_id=session_id, offer=payload)
-            response = await webrtc_routes.handle_webrtc_offer(request_obj)
-            await manager.send_message(session_id, {"type": "webrtc_answer", "data": response})
-        else:
-            print(f"Unknown message type: {message_type}")
-    except Exception as e:
-        print(f"Error handling websocket message for {session_id}: {e}")
+# async def handle_websocket_message(session_id: str, data: dict):
+#     message_type = data.get("type")
+#     payload = data.get("data", {})
+#     try:
+#         if message_type == "input":
+#             await ContainerService.forward_input(session_id, payload)
+#         elif message_type == "webrtc_offer":
+#             request_obj = WebRTCOfferRequest(session_id=session_id, offer=payload)
+#             response = await webrtc_routes.handle_webrtc_offer(request_obj)
+#             await manager.send_message(session_id, {"type": "webrtc_answer", "data": response})
+#         elif message_type == "webrtc_ice_candidate":
+#             await WebRTCService.add_ice_candidate(session_id, payload)
+#         else:
+#             print(f"Unknown message type: {message_type}")
+#     except Exception as e:
+#         print(f"Error handling websocket message for {session_id}: {e}")
+
+# @app.websocket("/ws/{session_id}")
+# async def websocket_endpoint(websocket: WebSocket, session_id: str):
+#     await manager.connect(websocket, session_id)
+#     try:
+#         while True:
+#             message = await websocket.receive_json()
+#             await handle_websocket_message(session_id, message)
+#     except WebSocketDisconnect:
+#         print(f"WebSocket {session_id} disconnected.")
+#     except Exception as e:
+#         print(f"Error in websocket for {session_id}: {e}")
+#     finally:
+#         await WebRTCService.cleanup_peer_connection(session_id)
+#         manager.disconnect(session_id)
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await manager.connect(websocket, session_id)
+    
+    # Get session details to find the VNC port
+    from services.session_service import SessionService
+    session = await SessionService.get_session(session_id)
+    if not session or not session.get("vnc_port"):
+        print(f"Session {session_id} not found or not ready.")
+        await websocket.close(code=1008)
+        return
+
     try:
         while True:
-            message = await websocket.receive_json()
-            await handle_websocket_message(session_id, message)
+            data = await websocket.receive_json()
+            message_type = data.get("type")
+            payload = data.get("data", {})
+            print("came here 2 : ",payload)
+            if message_type == "webrtc_offer":
+                print(session_id)
+                offer = payload.get("offer")
+                if offer:
+                    # Directly call the service and pass the manager
+                    answer = await WebRTCService.handle_offer(
+                        session_id=session_id,
+                        offer=offer,
+                        vnc_port=session["vnc_port"],
+                        manager=manager  # Pass the manager instance
+                    )
+                    await manager.send_message(session_id, {"type": "webrtc_answer", "data": answer})
+            
+            elif message_type == "webrtc_ice_candidate":
+                if payload:
+                    await WebRTCService.add_ice_candidate(session_id, payload)
+
+            elif message_type == "input":
+                # Assuming you have this service function
+                from services.vnc_service import VNCService
+                await VNCService.send_input(session_id, payload)
+
     except WebSocketDisconnect:
-        print(f"WebSocket {session_id} disconnected.")
+        print(f"WebSocket disconnected for session: {session_id}")
     except Exception as e:
-        print(f"Error in websocket for {session_id}: {e}")
+        print(f"Error in WebSocket for session {session_id}: {e}")
     finally:
         await WebRTCService.cleanup_peer_connection(session_id)
         manager.disconnect(session_id)

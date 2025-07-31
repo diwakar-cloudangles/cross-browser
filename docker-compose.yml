@@ -1,20 +1,20 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_DATABASE: local_db
-      MYSQL_ROOT_PASSWORD: root123
-    volumes:
-      - db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+  # db:
+  #   image: mysql:8.0
+  #   restart: always
+  #   environment:
+  #     MYSQL_DATABASE: local_db
+  #     MYSQL_ROOT_PASSWORD: root!123
+  #   volumes:
+  #     - db_data:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot!123"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
 
   app:
     build: .
@@ -22,13 +22,16 @@ services:
       - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    # environment:
+    #   - DATABASE_URL=mysql+aiomysql://root:Root!123@db:3306/local_db
     environment:
-      - DATABASE_URL=mysql+aiomysql://root:root123@db:3306/local_db
+      - DATABASE_URL=mysql+aiomysql://root:Root!123@host.docker.internal:3306/local_db
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      db:
-        condition: service_healthy
 
 volumes:
   db_data:
+
+networks:
+  app-network:
+    driver: bridge

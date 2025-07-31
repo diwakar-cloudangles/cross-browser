@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any
 from sqlalchemy import select, update, delete
+import os
 
 from database import async_session_maker, Container, Session, BrowserType, SessionStatus
 from services.vnc_service import VNCService
@@ -17,14 +18,17 @@ class ContainerService:
         
         # Hardcoding port 5900 to remove any variables
         vnc_port = 5900
+        network_name = os.getenv("NETWORK_NAME", "cross-browser_app-network")
         
         container_config = {
             "image": f"browser-{browser_type.value}:latest",
             "name": f"browser-{session_id}",
             "ports": {
-                '5900/tcp': vnc_port
+                # '5900/tcp': vnc_port
+                '5900/tcp': None
             },
-            "network": "bridge",
+            "network": network_name,
+            # "network": "bridge",
             "environment": {
                 'VNC_PASSWORD': 'password'
             },
@@ -41,6 +45,10 @@ class ContainerService:
                 ContainerService.client.containers.run, **container_config
             )
             
+            # Inspect the container to get the randomly assigned port
+            container.reload()
+            assigned_port = container.ports['5900/tcp'][0]['HostPort']
+
             await asyncio.sleep(15)
             
             async with async_session_maker() as db:
@@ -67,7 +75,8 @@ class ContainerService:
             
             return {
                 "container_id": container.id,
-                "vnc_port": vnc_port,
+                # "vnc_port": vnc_port,
+                "vnc_port": assigned_port,
                 "status": "running"
             }
             

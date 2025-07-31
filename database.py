@@ -1,11 +1,13 @@
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, String, Integer, DateTime, Text, Enum, Boolean
 from datetime import datetime
 import enum
-import os
 
-DATABASE_URL =os.getenv("DATABASE_URL", "mysql+pymysql://root:root123@localhost:3306/local_db")
+DATABASE_URL =os.getenv("DATABASE_URL", "mysql+pymysql://root:Root!123@host.docker.internal:3306/local_db")
+
+# DATABASE_URL =os.getenv("DATABASE_URL", "mysql+pymysql://root:Root!123@localhost:3306/local_db")
 
 
 # Convert to async URL
