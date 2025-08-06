@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log("Sending ICE candidate to server:", event.candidate);
+                console.log("Sending ICE candidate to server from frontend:", event.candidate);
                 ws.send(JSON.stringify({
                     type: 'webrtc_ice_candidate',
                     data: event.candidate.toJSON()
@@ -54,12 +54,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ws.onopen = async () => {
         statusElement.textContent = 'Status: Handshaking...';
+        console.log('WebSocket connection established:', wsUrl);
         createPeerConnection();
 
         try {
+            console.log('Creating WebRTC offer...');
             const offer = await pc.createOffer({ offerToReceiveVideo: true });
+            console.log('Setting local description...');
             await pc.setLocalDescription(offer);
-
+            console.log('Local description set:', pc.localDescription);
             ws.send(JSON.stringify({
                 type: 'webrtc_offer',
                 data: { offer: { sdp: offer.sdp, type: offer.type } }
@@ -105,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const sendInput = (payload) => {
         if (ws.readyState === WebSocket.OPEN) {
+            console.log("Sending input to server:", payload);
             ws.send(JSON.stringify({ type: 'input', data: payload }));
         }
     };
@@ -118,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     videoElement.addEventListener('mousemove', (e) => {
         const { x, y } = getMousePosition(e);
+        console.log(`Mouse moved to: x=${x}, y=${y}`);
         sendInput({ input_type: 'mouse', action: 'move', x, y });
     });
 

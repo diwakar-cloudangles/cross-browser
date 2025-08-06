@@ -25,7 +25,6 @@ class VNCVideoTrack(VideoStreamTrack):
                 try:
                     print(f"VNC connection attempt {attempt + 1}/{max_retries}...")
                     
-                    # Step 1: Connect WITHOUT the pixel_format argument.
                     self.vnc_context = asyncvnc.connect(
                         'host.docker.internal', self.vnc_port, password='password'
                     )
@@ -34,7 +33,6 @@ class VNCVideoTrack(VideoStreamTrack):
                     # )
                     self.client = await self.vnc_context.__aenter__()
 
-                    # Step 2: Set the pixel format on the client object AFTER connecting.
                     self.client.pixel_format = 'rgb888'
 
                     print("VNC connection successful and pixel format set.")
@@ -50,6 +48,7 @@ class VNCVideoTrack(VideoStreamTrack):
             print(f"Successfully connected via asyncvnc for session {self.session_id}")
             await asyncio.Event().wait()
         except asyncio.CancelledError:
+            print("error: ",asyncio.CancelledError)
             pass
         except Exception as e:
             print(f"VNC client run error for session {self.session_id}: {e}")
@@ -76,23 +75,45 @@ class VNCVideoTrack(VideoStreamTrack):
             pass # Cancellation is expected.
 
     async def recv(self) -> VideoFrame:
-        # THE FIX IS HERE: We remove the explicit check for a closed client
-        # and rely on the try/except block below.
         if not self.client:
             await asyncio.sleep(1/30)
             return VideoFrame.from_ndarray(np.zeros((720, 1280, 3), dtype=np.uint8), format="rgb24")
-        try:
-            rgba_array = await self.client.screenshot()
-            # rgb_array = rgba_array[:, :, :3]
-            # frame_array = np.array(pil_image.convert("RGB"))
-            frame = VideoFrame.from_ndarray(rgb_array, format="rgb24")
-            frame.pts, frame.time_base = self._timestamp, 1000
-            self._timestamp += 33
-            return frame
-        except Exception as e:
-            print(f"Error capturing VNC screen with asyncvnc for session {self.session_id}: {e}")
-            await self._cancel_vnc_task()
-            return VideoFrame.from_ndarray(np.zeros((720, 1280, 3), dtype=np.uint8), format="rgb24")
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                rgba_array = await self.client.screenshot()
+                if rgba_array is None or rgba_array.size == 0:
+                    raise ValueError("Received empty screenshot from VNC client")
+                
+                rgb_array = rgba_array[:, :, :3]
+                frame = VideoFrame.from_ndarray(rgb_array, format="rgb24")
+                frame.pts, frame.time_base = self._timestamp, 1000
+                self._timestamp += 33
+                return frame
+                
+            except ValueError as ve:
+                print(f"VNC screenshot error for session {self.session_id}: Invalid frame data - {ve}")
+                if attempt == max_retries - 1:
+                    await self._cancel_vnc_task()
+                else:
+                    await asyncio.sleep(0.1)  # Short delay before retry
+                
+            except Exception as e:
+                error_code = getattr(e, 'errno', None)
+                if error_code == 1536:  # Known VNC frame buffer error
+                    print(f"VNC frame buffer error for session {self.session_id} - attempting reconnect")
+                    await self._cancel_vnc_task()
+                    self._vnc_task = asyncio.create_task(self._run_vnc_client())
+                    await asyncio.sleep(0.5)  # Give time for reconnection
+                else:
+                    print(f"VNC screenshot error for session {self.session_id}: {type(e).__name__} - {str(e)}")
+                    print(f"Error details: {getattr(e, 'errno', 'N/A')}")
+                    await self._cancel_vnc_task()
+                break  # Exit retry loop on unhandled exceptions
+    
+        # Return blank frame on error
+        return VideoFrame.from_ndarray(np.zeros((720, 1280, 3), dtype=np.uint8), format="rgb24")
 
 class WebRTCService:
     peer_connections: Dict[str, RTCPeerConnection] = {}

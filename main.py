@@ -117,7 +117,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             data = await websocket.receive_json()
             message_type = data.get("type")
             payload = data.get("data", {})
-            print("came here 2 : ",payload)
+            print(message_type, payload)
             if message_type == "webrtc_offer":
                 print(session_id)
                 offer = payload.get("offer")

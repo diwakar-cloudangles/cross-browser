@@ -1,6 +1,6 @@
 FROM ubuntu:22.04
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=interactive
 
 # Install dependencies, using x11vnc
 RUN apt-get update && apt-get install -y \
