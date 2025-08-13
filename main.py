@@ -117,7 +117,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             data = await websocket.receive_json()
             message_type = data.get("type")
             payload = data.get("data", {})
-            print(message_type, payload)
+            # print(message_type, payload)
             if message_type == "webrtc_offer":
                 print(session_id)
                 offer = payload.get("offer")
@@ -145,5 +145,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     except Exception as e:
         print(f"Error in WebSocket for session {session_id}: {e}")
     finally:
+        print(f"Connection closed. Stopping container for session: {session_id}")
         await WebRTCService.cleanup_peer_connection(session_id)
         manager.disconnect(session_id)
+        await ContainerService.stop_container(session_id)

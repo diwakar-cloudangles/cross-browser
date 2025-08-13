@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     const videoElement = document.getElementById('remote-video');
     const statusElement = document.getElementById('status');
@@ -25,14 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log("Sending ICE candidate to server from frontend:", event.candidate);
                 ws.send(JSON.stringify({
                     type: 'webrtc_ice_candidate',
                     data: event.candidate.toJSON()
                 }));
             }
         };
-
 
         pc.ontrack = (event) => {
             if (videoElement.srcObject !== event.streams[0]) {
@@ -54,20 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ws.onopen = async () => {
         statusElement.textContent = 'Status: Handshaking...';
-        console.log('WebSocket connection established:', wsUrl);
         createPeerConnection();
 
         try {
-            console.log('Creating WebRTC offer...');
             const offer = await pc.createOffer({ offerToReceiveVideo: true });
-            console.log('Setting local description...');
             await pc.setLocalDescription(offer);
-            console.log('Local description set:', pc.localDescription);
             ws.send(JSON.stringify({
                 type: 'webrtc_offer',
                 data: { offer: { sdp: offer.sdp, type: offer.type } }
             }));
-            console.log('WebRTC offer sent to server:', offer);
         } catch (error) {
             console.error('Error creating WebRTC offer:', error);
         }
@@ -75,17 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ws.onmessage = async (event) => {
         const message = JSON.parse(event.data);
-        try{
+        try {
             if (message.type === 'webrtc_answer') {
-                try {
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.data));
-                } catch (e) {
-                    console.error('Error setting remote description:', e);
-                }
-            }
-            else if (message.type === 'webrtc_ice_candidate') {
+                await pc.setRemoteDescription(new RTCSessionDescription(message.data));
+            } else if (message.type === 'webrtc_ice_candidate') {
                 if (message.data) {
-                    console.log("Received ICE candidate from server:", message.data);
                     await pc.addIceCandidate(new RTCIceCandidate(message.data));
                 }
             }
@@ -108,7 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const sendInput = (payload) => {
         if (ws.readyState === WebSocket.OPEN) {
-            console.log("Sending input to server:", payload);
             ws.send(JSON.stringify({ type: 'input', data: payload }));
         }
     };
@@ -122,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     videoElement.addEventListener('mousemove', (e) => {
         const { x, y } = getMousePosition(e);
-        console.log(`Mouse moved to: x=${x}, y=${y}`);
         sendInput({ input_type: 'mouse', action: 'move', x, y });
     });
 
@@ -134,8 +118,40 @@ document.addEventListener('DOMContentLoaded', () => {
     
     videoElement.addEventListener('contextmenu', e => e.preventDefault());
 
+    // --- KEYBOARD LOGIC UPDATED ---
     document.addEventListener('keydown', (e) => {
+        // Prevent default browser actions for shortcuts like Ctrl+S
         e.preventDefault();
-        sendInput({ input_type: 'keyboard', action: 'press', key: e.key });
+
+        // Create a list of currently active modifier keys
+        const modifiers = [];
+        if (e.shiftKey) modifiers.push('Shift');
+        if (e.ctrlKey) modifiers.push('Control');
+        if (e.altKey) modifiers.push('Alt');
+        if (e.metaKey) modifiers.push('Meta');
+
+        // Send the main key and the list of active modifiers
+        sendInput({
+            input_type: 'keyboard',
+            action: 'press',
+            key: e.key,
+            modifiers: modifiers
+        });
     });
+    // --- END OF UPDATE ---
+
+    // --- ADD THIS NEW EVENT LISTENER FOR SCROLLING ---
+    videoElement.addEventListener('wheel', (e) => {
+        // Prevent the main page from scrolling
+        e.preventDefault();
+    
+        // Determine scroll direction from the sign of deltaY
+        const direction = e.deltaY < 0 ? 'up' : 'down';
+    
+        sendInput({
+            input_type: 'mouse',
+            action: 'scroll',
+            direction: direction
+        });
+    }, { passive: false }); // passive: false is needed for preventDefault
 });

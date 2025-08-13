@@ -5,7 +5,7 @@ from typing import Dict, Any
 import numpy as np
 from av import VideoFrame
 import asyncvnc
-
+import datetime
 vnc_clients: Dict[str, any] = {}
 
 class VNCVideoTrack(VideoStreamTrack):
@@ -47,8 +47,8 @@ class VNCVideoTrack(VideoStreamTrack):
             vnc_clients[self.session_id] = self.client
             print(f"Successfully connected via asyncvnc for session {self.session_id}")
             await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            print("error: ",asyncio.CancelledError)
+        except asyncio.CancelledError as e:
+            # print("error: ", {e})
             pass
         except Exception as e:
             print(f"VNC client run error for session {self.session_id}: {e}")
@@ -79,13 +79,13 @@ class VNCVideoTrack(VideoStreamTrack):
             await asyncio.sleep(1/30)
             return VideoFrame.from_ndarray(np.zeros((720, 1280, 3), dtype=np.uint8), format="rgb24")
         
-        max_retries = 3
+        max_retries = 10
         for attempt in range(max_retries):
             try:
                 rgba_array = await self.client.screenshot()
                 if rgba_array is None or rgba_array.size == 0:
                     raise ValueError("Received empty screenshot from VNC client")
-                
+                    
                 rgb_array = rgba_array[:, :, :3]
                 frame = VideoFrame.from_ndarray(rgb_array, format="rgb24")
                 frame.pts, frame.time_base = self._timestamp, 1000
@@ -93,11 +93,15 @@ class VNCVideoTrack(VideoStreamTrack):
                 return frame
                 
             except ValueError as ve:
-                print(f"VNC screenshot error for session {self.session_id}: Invalid frame data - {ve}")
-                if attempt == max_retries - 1:
-                    await self._cancel_vnc_task()
-                else:
-                    await asyncio.sleep(0.1)  # Short delay before retry
+                print(f"VNC screenshot error for session {self.session_id}: {datetime.datetime.now().strftime('%H:%M:%S')} - Invalid frame data - {ve}")
+                # if attempt == max_retries - 1:
+                #     await self._cancel_vnc_task()
+                # else:
+                #     await asyncio.sleep(0.1)  # Short delay before retry
+                await self._cancel_vnc_task()
+                self._vnc_task = asyncio.create_task(self._run_vnc_client())
+                await asyncio.sleep(0.5) # Give a moment for the reconnect to start
+                break
                 
             except Exception as e:
                 error_code = getattr(e, 'errno', None)

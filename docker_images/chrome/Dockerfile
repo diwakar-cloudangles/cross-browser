@@ -1,3 +1,47 @@
+# FROM ubuntu:22.04
+
+# ENV DEBIAN_FRONTEND=noninteractive
+
+# # Step 1: Base prerequisites. This should always work.
+# RUN apt-get update && \
+#     apt-get install -y --no-install-recommends wget gnupg ca-certificates && \
+#     rm -rf /var/lib/apt/lists/*
+
+# # Step 2: Set up Chrome repository. This should also work.
+# RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg && \
+#     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+
+# # Step 3: Install everything EXCEPT the TigerVNC packages
+# RUN apt-get update && \
+#     apt-get install -y --no-install-recommends \
+#     xvfb \
+#     openbox \
+#     supervisor \
+#     google-chrome-stable && \
+#     rm -rf /var/lib/apt/lists/*
+
+# # Step 4: CRITICAL DIAGNOSTIC STEP
+# # Install ONLY the VNC common tools and then VERIFY that the vncpasswd command exists.
+# # RUN apt-get update && \
+# #     apt-get install -y tigervnc-common && \
+    
+
+# # Step 5: Install the VNC server itself (only runs if Step 4 succeeds)
+# RUN apt-get install -y tigervnc-standalone-server && \
+#     which vncpasswd && \
+#     rm -rf /var/lib/apt/lists/*
+
+# # Step 6: Set up the password (only runs if Step 4 & 5 succeed)
+# RUN mkdir -p /root/.vnc && \
+#     echo "password" | vncpasswd -f > /root/.vnc/passwd && \
+#     chmod 600 /root/.vnc/passwd
+
+# # Supervisor configuration
+# COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# EXPOSE 5900
+# CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=interactive

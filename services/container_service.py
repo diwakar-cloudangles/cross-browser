@@ -13,6 +13,37 @@ class ContainerService:
     client = docker.from_env()
 
     @staticmethod
+    async def _perform_vnc_health_check(port: int, retries: int = 10, delay: float = 1.5):
+        """
+        Actively checks if the VNC port on the host is ready.
+        """
+        print(f"Performing health check on host port {port}...")
+        for attempt in range(retries):
+            try:
+                # Try to open a connection to the VNC port
+                reader, writer = await asyncio.open_connection('host.docker.internal', port)
+
+                # If connection succeeds, close it immediately and return
+                writer.close()
+                await writer.wait_closed()
+                print(f"Health check successful on attempt {attempt + 1}. Container is ready.")
+                return
+            except ConnectionRefusedError:
+                # This is expected if the service isn't ready yet
+                print(f"Health check attempt {attempt + 1} failed. Retrying in {delay}s...")
+                if attempt == retries - 1:
+                    # If this was the last attempt, break the loop to raise an error
+                    break
+                await asyncio.sleep(delay)
+            except Exception as e:
+                # Handle other potential errors
+                print(f"An unexpected error occurred during health check: {e}")
+                break
+
+        # If the loop finishes without returning, all retries have failed
+        raise TimeoutError(f"Container failed to become healthy on port {port} after {retries} attempts.")
+
+    @staticmethod
     async def create_container(session_id: str, browser_type: BrowserType) -> Dict[str, Any]:
         """Create and start a new browser container"""
         
@@ -24,8 +55,8 @@ class ContainerService:
             "image": f"browser-{browser_type.value}:latest",
             "name": f"browser-{session_id}",
             "ports": {
-                '5900/tcp': vnc_port
-                # '5900/tcp': None
+                # '5900/tcp': vnc_port
+                '5900/tcp': None
             },
             # "network": network_name,
             "network": "bridge",
@@ -46,10 +77,11 @@ class ContainerService:
             )
             
             # Inspect the container to get the randomly assigned port
-            # container.reload()
-            # assigned_port = container.ports['5900/tcp'][0]['HostPort']
+            container.reload()
+            assigned_port = container.ports['5900/tcp'][0]['HostPort']
 
-            await asyncio.sleep(15)
+            # await asyncio.sleep(15)
+            await ContainerService._perform_vnc_health_check(assigned_port)
             
             async with async_session_maker() as db:
                 db_container = Container(
@@ -57,7 +89,7 @@ class ContainerService:
                     session_id=session_id,
                     browser_type=browser_type,
                     status="running",
-                    vnc_port=vnc_port,
+                    vnc_port=assigned_port,
                     created_at=datetime.utcnow()
                 )
                 db.add(db_container)
@@ -67,7 +99,7 @@ class ContainerService:
                     .where(Session.id == session_id)
                     .values(
                         container_id=container.id,
-                        vnc_port=vnc_port,
+                        vnc_port=assigned_port,
                         status=SessionStatus.RUNNING
                     )
                 )
@@ -75,8 +107,8 @@ class ContainerService:
             
             return {
                 "container_id": container.id,
-                "vnc_port": vnc_port,
-                # "vnc_port": assigned_port,
+                # "vnc_port": vnc_port,
+                "vnc_port": assigned_port,
                 "status": "running"
             }
             
